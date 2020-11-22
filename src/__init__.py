@@ -3,8 +3,10 @@ import logging.config
 
 from flask import Flask
 
+from celery_utils import init_celery
 
-def create_app(config_obj=None):
+
+def create_app(config_obj=None, **kwargs):
     """Sets config from passed in config object,
     initializes Flask modules, registers blueprints (routes)
 
@@ -34,5 +36,8 @@ def create_app(config_obj=None):
 
     from src.routes import register_routes
     register_routes(app)
+
+    if kwargs.get("celery", False):
+        init_celery(kwargs["celery"], app)
 
     return app

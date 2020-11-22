@@ -4,13 +4,13 @@ from http import HTTPStatus
 from flask_restx import Resource, Namespace
 from sqlalchemy import exc
 
-from src.marshal.airports import airport_get_put, airport_upload_parser, airport_post
+from src.marshal import airport_get_put, airport_upload_parser, airport_post, airport_file_upload
 from src.models import Airport, db, get_object_or_404
 
 
-__all__ = [
+__all__ = (
     'airport_ns', 'AirportUploadAPI', 'AirportUpdateRetrieveAPI', 'AirportListAddAPI',
-]
+)
 
 
 airport_ns = Namespace('airports', description='Airports namespace')
@@ -22,6 +22,7 @@ class AirportUploadAPI(Resource):
     """Resource/routes for csv file uploading endpoints"""
 
     @airport_ns.expect(airport_upload_parser, validate=True)
+    @airport_ns.marshal_with(airport_file_upload, envelope='resource')
     def post(self, *args, **kwargs):
         data = airport_upload_parser.parse_args()
         field_names = data['file'].readline().decode().lower().strip().split(',')
@@ -40,11 +41,11 @@ class AirportUploadAPI(Resource):
         try:
             db.session.bulk_save_objects(objects)
             db.session.commit()
-            result, status = {'result': 'file uploaded'}, HTTPStatus.CREATED
+            result = HTTPStatus.CREATED
         except exc.IntegrityError:
             db.session.rollback()
-            result, status = {'result': 'error while inserting'}, HTTPStatus.BAD_REQUEST
-        return result, status
+            result = {'result': 'Error while inserting'}, HTTPStatus.BAD_REQUEST
+        return result
 
 
 @airport_ns.response(code=HTTPStatus.OK, description=HTTPStatus.OK.description)
@@ -65,10 +66,10 @@ class AirportUpdateRetrieveAPI(Resource):
             json: serialized airport object
 
         """
-        airport = get_object_or_404(Airport.query.filter_by(is_deleted=False), sid)
+        airport = get_object_or_404(Airport.query.only_not_deleted(), sid)
         return airport
 
-    @airport_ns.expect(airport_get_put, validate=True)
+    @airport_ns.expect(airport_post, validate=True)
     @airport_ns.marshal_with(airport_get_put, envelope='resource')
     def put(self, sid):
         """External facing airport endpoint PUT
@@ -82,16 +83,11 @@ class AirportUpdateRetrieveAPI(Resource):
             json: serialized airport object
 
         """
-        airport = get_object_or_404(Airport.query.filter_by(is_deleted=False).with_for_update(), sid)
-        airport.update(airport_ns.payload)
-        db.session.commit()
-        return airport
+        return Airport.update(airport_ns.payload, sid)
 
     @airport_ns.response(code=HTTPStatus.NO_CONTENT, description=HTTPStatus.NO_CONTENT.description)
     def delete(self, sid):
-        airport = get_object_or_404(Airport.query.filter_by(is_deleted=False).with_for_update(), sid)
-        airport.is_deleted = True
-        db.session.commit()
+        Airport.delete(sid)
         return {'result': 'ok'}, HTTPStatus.NO_CONTENT
 
 
@@ -100,15 +96,12 @@ class AirportListAddAPI(Resource):
 
     @airport_ns.response(code=HTTPStatus.CREATED, description=HTTPStatus.CREATED.description)
     @airport_ns.expect(airport_post, validate=True)
-    @airport_ns.marshal_with(airport_post, envelope='resource')
+    @airport_ns.marshal_with(airport_get_put, envelope='resource')
     def post(self):
-        obj = Airport(**airport_ns.payload)
-        db.session.add(obj)
-        db.session.commit()
-        return obj, HTTPStatus.CREATED
+        return Airport.create(airport_ns.payload), HTTPStatus.CREATED
 
     @airport_ns.response(code=HTTPStatus.OK, description=HTTPStatus.OK.description)
     @airport_ns.marshal_with(airport_get_put, as_list=True)
     def get(self):
-        return Airport.query.filter_by(is_deleted=False).all()
+        return Airport.query.only_not_deleted().all()
 

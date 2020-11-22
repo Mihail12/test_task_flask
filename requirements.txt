@@ -4,5 +4,4 @@ Flask-Migrate==2.5.3
 pymysql==0.10.1
 cryptography==3.2.1
 flask-restx==0.2.0
-marshmallow==3.9.1
-flask-marshmallow==0.14.0
+celery==4.4.7
