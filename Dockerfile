@@ -9,6 +9,7 @@ ENV PYTHONUNBUFFERED 1
 
 # install psycopg2 dependencies
 RUN apt-get update
+RUN apt-get install python3-dev gcc -y
 RUN apt-get install ncat -y
 
 # install dependencies

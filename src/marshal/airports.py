@@ -47,7 +47,7 @@ airport_post = marshal_models.model('Airport-POST', {
 
 airport_upload_parser = reqparse.RequestParser()
 airport_upload_parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files', required=True)
-airport_upload_parser.add_argument('insert_with_ids', type=str,
+airport_upload_parser.add_argument('insert_with_ids', type=str, default='false',
                                    help='set to "false" if you want export file without "ids" in it')
 
 
